@@ -38,7 +38,7 @@ S3BACKUP_DIR="$HOME/.s3backup"
 KEYFILE="${S3BACKUP_DIR}/key"
 LOCKFILE="${S3BACKUP_DIR}/lock"
 LOGFILE="/var/log/s3backup.log"
-CURRENT_DATE=$(date +%Y%m%d%H)
+CURRENT_DATE=$(date +%Y-%m-%d-%H-%M-%S)
 MINOR_SUPPORTED_VERSION="805"
 TRUE="1"
 FALSE="0"
@@ -237,9 +237,9 @@ case $CMD in
   	touch "${LOCKFILE}" || echoerror "Failed to create lock file. Please review the configuration."
   	${XTRA_CMD} --encrypt=AES256 --encrypt-key-file="${KEYFILE}" --stream=xbstream --compress --user=${MYSQL_USER} --password=${MYSQL_PASSWORD} . 2>>"${LOGFILE}" | $PV_CMD | ${GOF3R_CMD} put -b "${S3_BUCKET_NAME}" --endpoint="${AWS_REGION}" -k "${S3_BACKUP_PATH}"/"${CURRENT_DATE}"/"${S3_BACKUP_NAME}".xbcrypt
   	STATUS=(${PIPESTATUS[@]})
-  	IBEX_STATUS=${STATUS[0]}
+    XTRA_STATUS=${STATUS[0]}
   	S3_STATUS=${STATUS[1]}
-  	if [ "$IBEX_STATUS" -ne 0 ]
+  	if [ "$XTRA_STATUS" -ne 0 ]
   	then
   		echoerror "Xtrabackup failure!. Plese check the log and try again."
   	fi
