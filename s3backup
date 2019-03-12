@@ -38,8 +38,8 @@ S3BACKUP_DIR="$HOME/.s3backup"
 KEYFILE="${S3BACKUP_DIR}/key"
 LOCKFILE="${S3BACKUP_DIR}/lock"
 LOGFILE="/var/log/s3backup.log"
-CURRENT_DATE=$(date +%Y%m%d)
-MINOR_SUPPORTED_VERSION="23"
+CURRENT_DATE=$(date +%Y%m%d%H)
+MINOR_SUPPORTED_VERSION="805"
 TRUE="1"
 FALSE="0"
 
@@ -83,8 +83,8 @@ usage() {
   echo ""
   echo "	$SCRIPT_NAME genkey - Generate the AES256 key for encryption."
   echo "	$SCRIPT_NAME backup - Upload a full backup to S3 Bucket."
-  echo "	$SCRIPT_NAME restore date - Prepare a full backup restore from S3 Bucket from desired date in format 'YYYYMMDD'."
-  echo "	$SCRIPT_NAME full-restore date - Restore a full backup from S3 Bucket from desired date in format 'YYYYMMDD'."
+  echo "	$SCRIPT_NAME restore date - Prepare a full backup restore from S3 Bucket from desired date in format 'YYYYMMDDHH'."
+  echo "	$SCRIPT_NAME full-restore date - Restore a full backup from S3 Bucket from desired date in format 'YYYYMMDDHH'."
   echo ""
 }
 
@@ -94,10 +94,10 @@ __check_command_exists () {
 }
 
 # --- Validate required dependencies
-if __check_command_exists innobackupex ; then
-  IBEX_CMD="$(which innobackupex)"
+if __check_command_exists xtrabackup ; then
+  XTRA_CMD="$(which xtrabackup)"
 else
-  echoerror "'innobackupex' command missing. Make sure you have xtrabackup installed."
+  echoerror "'xtrabackup' command missing. Make sure you have xtrabackup installed."
 fi
 
 if __check_command_exists qpress ; then
@@ -135,10 +135,10 @@ __check_mysql_credentials () {
 # --- Function: __check_xtrabackup_version
 __check_xtrabackup_version () {
   local CURRENT_VERSION
-  CURRENT_VERSION=$($IBEX_CMD  --version 2>&1 | sed -e 's/[^0-9.]*\([0-9.]*\).*/\1/' -e 's/\.//g' )
+  CURRENT_VERSION=$($XTRA_CMD  --version 2>&1 | sed -e 's/[^0-9.]*\([0-9.]*\).*/\1/' -e 's/\.//g' )
   if [ "$CURRENT_VERSION" -lt "$MINOR_SUPPORTED_VERSION" ]
   then
-    echoerror "Please install xtrabackup 2.3 or higher."
+    echoerror "Please install xtrabackup 8.0 or higher."
   fi
 }
 __check_xtrabackup_version
@@ -235,7 +235,7 @@ case $CMD in
     __check_mysql_credentials
   	echoinfo "Backup in progress, please wait. Log written to ${LOGFILE}"
   	touch "${LOCKFILE}" || echoerror "Failed to create lock file. Please review the configuration."
-  	${IBEX_CMD} --encrypt=AES256 --encrypt-key-file="${KEYFILE}" --stream=xbstream --compress --user=${MYSQL_USER} --password=${MYSQL_PASSWORD} . 2>>"${LOGFILE}" | $PV_CMD | ${GOF3R_CMD} put -b "${S3_BUCKET_NAME}" --endpoint="${AWS_REGION}" -k "${S3_BACKUP_PATH}"/"${CURRENT_DATE}"/"${S3_BACKUP_NAME}".xbcrypt
+  	${XTRA_CMD} --encrypt=AES256 --encrypt-key-file="${KEYFILE}" --stream=xbstream --compress --user=${MYSQL_USER} --password=${MYSQL_PASSWORD} . 2>>"${LOGFILE}" | $PV_CMD | ${GOF3R_CMD} put -b "${S3_BUCKET_NAME}" --endpoint="${AWS_REGION}" -k "${S3_BACKUP_PATH}"/"${CURRENT_DATE}"/"${S3_BACKUP_NAME}".xbcrypt
   	STATUS=(${PIPESTATUS[@]})
   	IBEX_STATUS=${STATUS[0]}
   	S3_STATUS=${STATUS[1]}
@@ -254,7 +254,7 @@ case $CMD in
   restore|full-restore)
   	if [ -z "$2" ]
   	then
-  		echoerror "ERROR: Please specify a backup date to retrieve, e.g. 20160927"
+  		echoerror "ERROR: Please specify a backup date to retrieve, e.g. 2019031215"
   	fi
     RESTORE_DATE="$2"
   	if [ ! -d $LOCAL_DIR ] && [ "$CMD" == "restore" ]
@@ -309,7 +309,7 @@ case $CMD in
     then
       echoerror "Error Uncompressing files. Please check ${LOCAL_DIR}"
     fi
-  	${IBEX_CMD} --apply-log "${LOCAL_DIR}" 2>> ${LOGFILE}
+  	${XTRA_CMD} --apply-log "${LOCAL_DIR}" 2>> ${LOGFILE}
   	if [ $? -ne 0 ]
   	then
   		echoerror "Applying logs failed. Check ${LOGFILE} file for more information."
@@ -317,7 +317,7 @@ case $CMD in
     if [ "$CMD" == "restore" ]
     then
       echoinfo "Backup is ready to be restored."
-      echoinfo "Make sure mysql service is stopped and run innobackupex --move-back ${LOCAL_DIR}"
+      echoinfo "Make sure mysql service is stopped and run xtrabackup --copy-back ${LOCAL_DIR}"
       echoinfo "Before starting mysql check datadir permissions."
     else
       __get_mysql_perms
