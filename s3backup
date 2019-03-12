@@ -100,12 +100,6 @@ else
   echoerror "'xtrabackup' command missing. Make sure you have xtrabackup installed."
 fi
 
-if __check_command_exists qpress ; then
-  QPRESS_CMD="$(which qpress)"
-else
-  echoerror "'qpress' command missing. Make sure you have qpress installed."
-fi
-
 if  __check_command_exists gof3r ; then
   GOF3R_CMD="$(which gof3r)"
 else
