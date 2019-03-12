@@ -235,7 +235,7 @@ case $CMD in
     __check_mysql_credentials
   	echoinfo "Backup in progress, please wait. Log written to ${LOGFILE}"
   	touch "${LOCKFILE}" || echoerror "Failed to create lock file. Please review the configuration."
-  	${XTRA_CMD} --encrypt=AES256 --encrypt-key-file="${KEYFILE}" --stream=xbstream --compress --user=${MYSQL_USER} --password=${MYSQL_PASSWORD} . 2>>"${LOGFILE}" | $PV_CMD | ${GOF3R_CMD} put -b "${S3_BUCKET_NAME}" --endpoint="${AWS_REGION}" -k "${S3_BACKUP_PATH}"/"${CURRENT_DATE}"/"${S3_BACKUP_NAME}".xbcrypt
+  	nice -n 10 ${XTRA_CMD} --backup --encrypt=AES256 --encrypt-key-file="${KEYFILE}" --stream=xbstream --compress --user=${MYSQL_USER} --password=${MYSQL_PASSWORD} . 2>>"${LOGFILE}" | nice -n 10 $PV_CMD | nice -n 10 ${GOF3R_CMD} put -b "${S3_BUCKET_NAME}" --endpoint="${AWS_REGION}" -k "${S3_BACKUP_PATH}"/"${CURRENT_DATE}"/"${S3_BACKUP_NAME}".xbcrypt
   	STATUS=(${PIPESTATUS[@]})
     XTRA_STATUS=${STATUS[0]}
   	S3_STATUS=${STATUS[1]}
