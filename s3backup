@@ -83,8 +83,8 @@ usage() {
   echo ""
   echo "	$SCRIPT_NAME genkey - Generate the AES256 key for encryption."
   echo "	$SCRIPT_NAME backup - Upload a full backup to S3 Bucket."
-  echo "	$SCRIPT_NAME restore date - Prepare a full backup restore from S3 Bucket from desired date in format 'YYYY-MM-DD-HH-mm-ss'."
-  echo "	$SCRIPT_NAME full-restore date - Restore a full backup from S3 Bucket from desired date in format 'YYYY-MM-DD-HH-mm-ss'."
+  echo "	$SCRIPT_NAME restore date - Prepare a full backup restore from S3 Bucket from desired date in format 'YYYYMMDDHH'."
+  echo "	$SCRIPT_NAME full-restore date - Restore a full backup from S3 Bucket from desired date in format 'YYYYMMDDHH'."
   echo ""
 }
 
@@ -235,7 +235,7 @@ case $CMD in
     __check_mysql_credentials
   	echoinfo "Backup in progress, please wait. Log written to ${LOGFILE}"
   	touch "${LOCKFILE}" || echoerror "Failed to create lock file. Please review the configuration."
-  	nice -n 10 ${XTRA_CMD} --backup --encrypt=AES256 --encrypt-key-file="${KEYFILE}" --stream=xbstream --compress --user=${MYSQL_USER} --password=${MYSQL_PASSWORD} . 2>>"${LOGFILE}" | nice -n 10 $PV_CMD | nice -n 10 ${GOF3R_CMD} put -b "${S3_BUCKET_NAME}" --endpoint="${AWS_REGION}" -k "${S3_BACKUP_PATH}"/"${CURRENT_DATE}"/"${S3_BACKUP_NAME}".xbcrypt
+  	nice -n 10 ${XTRA_CMD} --backup --encrypt=AES256 --encrypt-key-file="${KEYFILE}" --compress  --stream=xbstream  --user=${MYSQL_USER} --password=${MYSQL_PASSWORD}  | nice -n 10  ${GOF3R_CMD} put -b "${S3_BUCKET_NAME}" --endpoint="${AWS_REGION}" -k "${S3_BACKUP_PATH}"/"${CURRENT_DATE}"/"${S3_BACKUP_NAME}".xbcrypt
   	STATUS=(${PIPESTATUS[@]})
     XTRA_STATUS=${STATUS[0]}
   	S3_STATUS=${STATUS[1]}
@@ -254,16 +254,16 @@ case $CMD in
   restore|full-restore)
   	if [ -z "$2" ]
   	then
-  		echoerror "ERROR: Please specify a backup date to retrieve, e.g. 2019-03-12-23-28-08"
+  		echoerror "ERROR: Please specify a backup date to retrieve, e.g. 2019031215"
   	fi
     RESTORE_DATE="$2"
-  	if [ ! -d $LOCAL_DIR ] && [ "$CMD" == "restore" ]
+  	if [ ! -d $LOCAL_DIR ] && [ "$CMD" == "restore" ] || [ "$CMD" == "full-restore"  ]
     then
       mkdir -vp $LOCAL_DIR  &> /dev/null
       echoinfo "Created local dir to download backup files from S3 Bucket."
-    elif [ ! -d $LOCAL_DIR ] && [ "$CMD" == "full-restore" ]
+    elif [ ! -d $LOCAL_DIR ] && [  "$CMD" == "restore" ] || [ "$CMD" == "full-restore" ]
     then
-      echoerror "Configured restore directory ${LOCAL_DIR} doesn't exsits!."
+      echoerror "Configured restore directory ${LOCAL_DIR} doesn't exsits and couldn't be created!."
     fi
     __check_empty_dir
     if [ "$CMD" == "full-restore" ]
@@ -290,39 +290,36 @@ case $CMD in
   	echoinfo "Decrypting backup files and removing *..xbcrypt."
     cd "${LOCAL_DIR}" || echoerror "Faled to change directory to ${LOCAL_DIR}"
     # shellcheck disable=SC2044
-    for i in $(find . -iname "*\.xbcrypt"); do
-      # shellcheck disable=SC2086
-      xbcrypt -d --encrypt-key-file="${KEYFILE}" --encrypt-algo=AES256 < "$i" > "$(dirname $i)"/"$(basename $i .xbcrypt)" && rm -f "$i";
-    done
+    ${XTRA_CMD}  --decrypt=AES256 --encrypt-key-file="${KEYFILE}"  --target-dir="${LOCAL_DIR}"
     if [ $? -ne 0 ]
     then
       echoerror "Error decrypting files. Please check ${LOCAL_DIR}"
     fi
-    echoinfo "Decompressing backup files..."
-    cd "${LOCAL_DIR}" || echoerror "Faled to change directory to ${LOCAL_DIR}"
-    # shellcheck disable=SC2044
-    for bf in $(find . -iname "*\.qp"); do
-      # shellcheck disable=SC2086
-      ${QPRESS_CMD} -d "${bf}" "$(dirname ${bf})" && rm -f "${bf}";
-    done
+    ${XTRA_CMD} --decompress --target-dir="${LOCAL_DIR}" 2>> ${LOGFILE}
     if [ $? -ne 0 ]
     then
-      echoerror "Error Uncompressing files. Please check ${LOCAL_DIR}"
+      echoerror "Error  decompressing files , Please check ${LOCAL_DIR}"
     fi
-  	${XTRA_CMD} --apply-log "${LOCAL_DIR}" 2>> ${LOGFILE}
+    ${XTRA_CMD} --prepare --target-dir="${LOCAL_DIR}" 2>> ${LOGFILE}
   	if [ $? -ne 0 ]
   	then
-  		echoerror "Applying logs failed. Check ${LOGFILE} file for more information."
+  		echoerror "Preparing  failed. Check ${LOGFILE} file for more information."
   	fi
     if [ "$CMD" == "restore" ]
     then
       echoinfo "Backup is ready to be restored."
-      echoinfo "Make sure mysql service is stopped and run xtrabackup --copy-back ${LOCAL_DIR}"
+      echoinfo "Make sure mysql service is stopped and run xtrabackup --copy-back --target-dir=${LOCAL_DIR}"
       echoinfo "Before starting mysql check datadir permissions."
     else
       __get_mysql_perms
-      echoinfo "Changing ${LOCAL_DIR} ownership to ${__USER_MYSQL}:${__GROUP_MYSQL}"
-      chown -R "${__USER_MYSQL}":"${__GROUP_MYSQL}" "${LOCAL_DIR}"
+      ${XTRA_CMD} --copy-back --target-dir="${LOCAL_DIR}" 2>> ${LOGFILE}
+              if [ $? -ne 0 ]
+        then
+                echoerror "Restore   failed. Check ${LOGFILE} file for more information."
+        fi
+
+      echoinfo "Changing /var/lib/mysql  ownership to mysql"
+      chown -R mysql:mysql /var/lib/mysql/
       ${MYSQL_SERVICE_CMD}
       echoinfo "Backup restore complete!."
     fi
