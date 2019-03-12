@@ -7,7 +7,7 @@ Stream MySQL Backups to AWS S3.
 - [s3gof3r](https://github.com/rlmcpherson/s3gof3r)
 
   s3gof3r provides fast, parallelized, pipelined streaming access to Amazon S3. It includes a command-line interface: gof3r
-- [xtrabackup](http://www.percona.com/downloads/XtraBackup/LATEST/) >= 2.3
+- [xtrabackup](http://www.percona.com/downloads/XtraBackup/LATEST/) >= 8.0
 
   Percona XtraBackup is an open-source hot backup utility for MySQL - based servers that doesn’t lock your database during the backup.
 
