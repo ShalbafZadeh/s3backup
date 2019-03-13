@@ -310,7 +310,7 @@ case $CMD in
     if [ "$CMD" == "restore" ]
     then
       echoinfo "Backup is ready to be restored."
-      echoinfo "Make sure mysql service is stopped and run xtrabackup --copy-back --target-dir=${LOCAL_DIR}"
+      echoinfo "Make sure mysql service is stopped ,mysql data directory is empty and run xtrabackup --copy-back --target-dir=${LOCAL_DIR}"
       echoinfo "Before starting mysql check datadir permissions."
     else
       __get_mysql_perms
