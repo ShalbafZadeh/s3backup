@@ -164,6 +164,13 @@ __check_empty_dir ()  {
   fi
 }
 
+__check_empty_mysql_dir ()  {
+  if [[ -d /var/lib/mysql/ && $(find /var/lib/mysql/ | wc -l) -ne 1 ]]
+  then
+    echoerror "Directory /var/lib/mysql/ doesn't seem to be empty!"
+  fi
+}
+
 # --- Function: __get_mysql_perms
 __get_mysql_perms ()  {
   test -d "$LOCAL_DIR" || echoerror "Error while getting user and group ownership of $LOCAL_DIR"
@@ -262,6 +269,7 @@ case $CMD in
     __check_empty_dir
     if [ "$CMD" == "full-restore" ]
     then
+      __check_empty_mysql_dir 
       if  __check_mysql_running
       then
         echoerror "MySQL service is running!. Please stop service before running a full-restore."
@@ -281,7 +289,7 @@ case $CMD in
   		echoinfo "Deserializing files failed."
   		exit 1
   	fi
-  	echoinfo "Decrypting backup files and removing *..xbcrypt."
+  	echoinfo "Decrypting backup file"
     cd "${LOCAL_DIR}" || echoerror "Faled to change directory to ${LOCAL_DIR}"
     # shellcheck disable=SC2044
     ${XTRA_CMD}  --decrypt=AES256 --encrypt-key-file="${KEYFILE}"  --target-dir="${LOCAL_DIR}" 2>> ${LOGFILE}
