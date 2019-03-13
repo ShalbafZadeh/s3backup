@@ -314,7 +314,7 @@ case $CMD in
 
       echoinfo "Changing /var/lib/mysql  ownership to mysql"
       chown -R mysql:mysql /var/lib/mysql/
-      ${MYSQL_SERVICE_CMD}
+      ${MYSQL_START_CMD}
       echoinfo "Backup restore complete!."
     fi
     exit 0

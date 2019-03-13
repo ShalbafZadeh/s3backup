@@ -48,7 +48,7 @@ MYSQL_PASSWORD='root'
 Command to start mysql, based on your distro.
 
 ```
-MYSQL_SERVICE_CMD="service mysql start"
+MYSQL_START_CMD="service mysql start"
 ```
 
 Directory used to restore the backup. If you are using *full-restore* set this to MySQL datadir otherwise set this to a temporal directory.
