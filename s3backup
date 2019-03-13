@@ -34,7 +34,7 @@ export AWS_SECRET_ACCESS_KEY="$AWS_SECRET_KEY"
 
 SCRIPT_NAME="s3backup"
 CMD="$1"
-S3BACKUP_DIR="$HOME/.s3backup"
+S3BACKUP_DIR="/root/.s3backup"
 KEYFILE="${S3BACKUP_DIR}/key"
 LOCKFILE="${S3BACKUP_DIR}/lock"
 LOGFILE="/var/log/s3backup.log"
@@ -81,7 +81,7 @@ usage() {
   echo ""
   echo "Usage: "
   echo ""
-  echo "	$SCRIPT_NAME genkey - Generate the AES256 key for encryption."
+  echo "	$SCRIPT_NAME genkey PASSWORD - Generate the AES256 key for encryption."
   echo "	$SCRIPT_NAME backup - Upload a full backup to S3 Bucket."
   echo "	$SCRIPT_NAME restore date - Prepare a full backup restore from S3 Bucket from desired date in format 'YYYYMMDDHH'."
   echo "	$SCRIPT_NAME full-restore date - Restore a full backup from S3 Bucket from desired date in format 'YYYYMMDDHH'."
@@ -140,7 +140,7 @@ __check_xtrabackup_version
 # --- Function: __generate_key
 __generate_key () {
   local KEY
-  KEY=$(openssl aes-256-cbc -P -md sha1 | grep iv | cut -f2 -d=)
+  KEY=$(openssl aes-256-cbc -P -md sha1 -k ${KEYPASSWORD}| grep iv | cut -f2 -d=)
   echoinfo "Your encryption key is now ${KEY}. Saved in ${KEYFILE}"
   echo -n "${KEY}" > "${KEYFILE}"
   chmod 0600 "${KEYFILE}"
@@ -220,6 +220,10 @@ case $CMD in
           ;;
       esac
     else
+      	if [ -z "$2" ]
+  	then
+  		echoerror "ERROR: Please specify a password for encryption"
+      KEYPASSWORD="$2"
       __generate_key
     fi
     ;;
