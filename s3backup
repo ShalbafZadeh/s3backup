@@ -34,7 +34,7 @@ export AWS_SECRET_ACCESS_KEY="$AWS_SECRET_KEY"
 
 SCRIPT_NAME="s3backup"
 CMD="$1"
-S3BACKUP_DIR="$HOME/.s3backup"
+S3BACKUP_DIR="/root/.s3backup"
 KEYFILE="${S3BACKUP_DIR}/key"
 LOCKFILE="${S3BACKUP_DIR}/lock"
 LOGFILE="/var/log/s3backup.log"
